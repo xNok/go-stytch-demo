@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
+	"github.com/okta/okta-sdk-golang/v4/okta"
 	"github.com/sethvargo/go-envconfig"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
 )
@@ -32,6 +32,7 @@ func main() {
 		panic(err)
 	}
 
+	// Step 1: Instanciate stytch client
 	stytchClient, err := b2bstytchapi.NewClient(
 		c.StytchConf.ProjectID,
 		c.StytchConf.Secret,
@@ -41,8 +42,8 @@ func main() {
 		log.Fatalf("error instantiating API client %s", err)
 	}
 
-	ctx, oktaClient, err := okta.NewClient(
-		ctx,
+	// Step 2: Instanciate Okta client
+	oktaConfig, err := okta.NewConfiguration(
 		okta.WithOrgUrl(c.OktaConf.OrgUrl),
 		okta.WithToken(c.OktaConf.APIToken),
 	)
@@ -50,6 +51,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("error instantiating Okta API client %s", err)
 	}
+
+	oktaClient := okta.NewAPIClient(oktaConfig)
 
 	setup(ctx, stytchClient, oktaClient)
 }
