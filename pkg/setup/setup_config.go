@@ -6,12 +6,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Entry struct {
+type YAMLEntry struct {
 	Path   string
 	Config *SetupResult
 }
 
-func (r *Entry) Save() error {
+// Save persiste the configuration to YAML file
+func (r *YAMLEntry) Save() error {
 	buf, err := yaml.Marshal(r.Config)
 	if err != nil {
 		return err
@@ -21,19 +22,30 @@ func (r *Entry) Save() error {
 	return err
 }
 
-func (r *Entry) Load() (error, *SetupResult) {
+// Get returns the in memory configuration
+func (r *YAMLEntry) Get() *SetupResult {
+	return r.Config
+}
+
+// Load retrive the configuration from YAML file
+func (r *YAMLEntry) Load() (*SetupResult, error) {
+	// If the file does exist we return a blan config
+	_, err := os.Stat(r.Path)
+	if err != nil {
+		return &SetupResult{}, nil
+	}
 
 	buf, err := os.ReadFile(r.Path)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	c := &SetupResult{}
 	err = yaml.Unmarshal(buf, c)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	r.Config = c
-	return nil, c
+	return c, nil
 }
