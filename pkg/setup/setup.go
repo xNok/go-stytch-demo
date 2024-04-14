@@ -102,7 +102,7 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (conf *SetupR
 	// Step 2: Create and configure a new Okta Application
 	if conf.ApplicationID == "" {
 
-		conf.SsoOktaParameters, err = s.setupOktaSamlApplication(ctx, conf.SsoStychParameters)
+		conf.ApplicationID, conf.SsoOktaParameters, err = s.setupOktaSamlApplication(ctx, conf.SsoStychParameters)
 
 		if err != nil {
 			log.Fatalf("error creating Okta Application %s", err)
@@ -175,7 +175,7 @@ func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Conte
 	return nil
 }
 
-func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Context, conf *SsoStychParameters) (*SsoOktaParameters, error) {
+func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Context, conf *SsoStychParameters) (string, *SsoOktaParameters, error) {
 	samlApp := okta.NewSamlApplication()
 	samlApp.Label = okta.PtrString("Example SAML App")
 	samlApp.SignOnMode = okta.PtrString("SAML_2_0")
@@ -216,15 +216,21 @@ func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Con
 		},
 	}
 
-	_, _, err := s.OktaClient.ApplicationAPI.CreateApplication(ctx).Application(
+	oktaApp, _, err := s.OktaClient.ApplicationAPI.CreateApplication(ctx).Application(
 		okta.ListApplications200ResponseInner{
 			SamlApplication: samlApp,
 		},
 	).Execute()
 
-	if err != nil {
-		return nil, err
+	result := &SsoOktaParameters{
+		IdpEntityID:     *oktaApp.SamlApplication.Settings.SignOn.IdpIssuer,
+		IdpSSOURL:       *oktaApp.SamlApplication.Settings.IdentityStoreId,
+		X509Certificate: oktaApp.SamlApplication.Settings.SignOn.SpCertificate.GetX5c()[0],
 	}
 
-	return nil, nil
+	if err != nil {
+		return "", nil, err
+	}
+
+	return *oktaApp.SamlApplication.Id, result, nil
 }
