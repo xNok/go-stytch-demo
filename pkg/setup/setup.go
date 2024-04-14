@@ -2,7 +2,10 @@ package setup
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 
 	"github.com/okta/okta-sdk-golang/v4/okta"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
@@ -101,8 +104,7 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (conf *SetupR
 
 	// Step 2: Create and configure a new Okta Application
 	if conf.ApplicationID == "" {
-
-		conf.ApplicationID, conf.SsoOktaParameters, err = s.setupOktaSamlApplication(ctx, conf.SsoStychParameters)
+		conf.ApplicationID, err = s.setupOktaSamlApplication(ctx, conf.SsoStychParameters)
 
 		if err != nil {
 			log.Fatalf("error creating Okta Application %s", err)
@@ -112,8 +114,15 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (conf *SetupR
 		s.ConfProvider.Save()
 	}
 
-	err = s.updateStytchConnection(ctx, conf.OrganizationID, conf.ConnectionID, conf.SsoOktaParameters)
+	// Step 3: Fetch Okta SAML Metdata
+	conf.SsoOktaParameters, err = s.getOktaSamlApplicationMetada(ctx, conf.ApplicationID)
+	if err != nil {
+		log.Fatalf("error fetch Okta Application SSO metadata %s", err)
+		return
+	}
 
+	// Step 4: Update Stych SSO Connactions
+	err = s.updateStytchConnection(ctx, conf.OrganizationID, conf.ConnectionID, conf.SsoOktaParameters)
 	if err != nil {
 		log.Fatalf("error updating SSO SAML Connection %s", err)
 		return
@@ -175,7 +184,7 @@ func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Conte
 	return nil
 }
 
-func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Context, conf *SsoStychParameters) (string, *SsoOktaParameters, error) {
+func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Context, conf *SsoStychParameters) (string, error) {
 	samlApp := okta.NewSamlApplication()
 	samlApp.Label = okta.PtrString("Example SAML App")
 	samlApp.SignOnMode = okta.PtrString("SAML_2_0")
@@ -222,15 +231,81 @@ func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Con
 		},
 	).Execute()
 
-	result := &SsoOktaParameters{
-		IdpEntityID:     *oktaApp.SamlApplication.Settings.SignOn.IdpIssuer,
-		IdpSSOURL:       *oktaApp.SamlApplication.Settings.IdentityStoreId,
-		X509Certificate: oktaApp.SamlApplication.Settings.SignOn.SpCertificate.GetX5c()[0],
+	if err != nil {
+		return "", err
 	}
+
+	return *oktaApp.SamlApplication.Id, nil
+}
+
+func (s *OktaSAMLConnectionBootstraper) getOktaSamlApplicationMetada(ctx context.Context, oktaAppID string) (*SsoOktaParameters, error) {
+	// Fetch the SAML metdata we need to configure Stych
+	// The okta SDK is broken it does set the Content-Type as application/xml
+	// metadata, _, err := s.OktaClient.ApplicationSSOAPI.PreviewSAMLmetadataForApplication(ctx, oktaAppID).Execute()
+
+	metadata, err := previewSAMLmetadataForApplication(ctx, s.OktaClient, oktaAppID)
 
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	return *oktaApp.SamlApplication.Id, result, nil
+	// Parse the SAML metadata XML
+	SAML, err := parseXML(metadata)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := &SsoOktaParameters{
+		IdpEntityID:     SAML.EntityID,
+		IdpSSOURL:       SAML.IDPSSODescriptor.SingleSignOnServices[0].Location,
+		X509Certificate: SAML.IDPSSODescriptor.KeyDescriptors[0].KeyInfo.X509Data.X509Certificate,
+	}
+
+	return result, nil
+}
+
+// previewSAMLmetadataForApplicationm replace the oktaSDK that doesn't send the right header
+// We are forced to used this until they fix their SDK
+func previewSAMLmetadataForApplication(ctx context.Context, oktaClient *okta.APIClient, appId string) (string, error) {
+	client := &http.Client{}
+
+	url := "https://" + oktaClient.GetConfig().Host + fmt.Sprintf("/api/v1/apps/%s/sso/saml/metadata", appId)
+
+	var key string
+	if auth, ok := oktaClient.GetConfig().Context.Value(okta.ContextAPIKeys).(map[string]okta.APIKey); ok {
+		if apiKey, ok := auth["API_Token"]; ok {
+			if apiKey.Prefix != "" {
+				key = apiKey.Prefix + " " + apiKey.Key
+			} else {
+				key = apiKey.Key
+			}
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+
+	if err != nil {
+		return "", err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/xml")
+	req.Header.Set("Accept", "application/xml")
+	req.Header.Set("Authorization", key)
+
+	// Send the request
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error sending request to API endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading response body: %v", err)
+	}
+
+	return string(responseBody), nil
 }
