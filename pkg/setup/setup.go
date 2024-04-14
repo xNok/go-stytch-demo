@@ -147,9 +147,6 @@ func (s *OktaSAMLConnectionBootstraper) createStytchConnection(ctx context.Conte
 		return "", nil, err
 	}
 
-	// SsoAcsUrl = sso.Connection.AcsURL,
-	// SsoAudience = sso.Connection.AudienceURI,
-
 	return sso.Connection.ConnectionID, &SsoStychParameters{
 		SsoAcsUrl:   sso.Connection.AcsURL,
 		SsoAudience: sso.Connection.AudienceURI,
@@ -179,44 +176,51 @@ func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Conte
 }
 
 func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Context, conf *SsoStychParameters) (*SsoOktaParameters, error) {
-	samlApp := s.OktaClient.ApplicationAPI.CreateApplication(ctx)
-	samlApp.Name = okta.PtrString("template_saml_2_0")
+	samlApp := okta.NewSamlApplication()
 	samlApp.Label = okta.PtrString("Example SAML App")
-	samlApp.Settings = &okta.SamlApplicationSettings{
-		SignOn: &okta.SamlApplicationSettingsSignOn{
-			Audience:              &conf.SsoAudience,
-			Destination:           "https://example.com/saml/acs",
-			Recipient:             "https://example.com/saml/acs",
-			SubjectNameIdTemplate: "${user.email}",
-			SubjectNameIdFormat:   "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-			Response:              "signed",
-			Assertion:             "signed",
-			SignatureAlgorithm:    "RSA_SHA256",
-			DigestAlgorithm:       "SHA256",
-			HonorForceAuthn:       true,
-			AuthnContextClassRef:  "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
-			SpIssuer:              nil,
-			AttributeStatements: []okta.SamlAttributeStatement{
-				{
-					Type:      okta.PtrString("EXPRESSION"),
-					Name:      okta.PtrString("firstName"),
-					Namespace: okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:basic"),
-					Values: []string{
-						"user.firstName",
-					},
-				}, {
-					Type:      okta.PtrString("EXPRESSION"),
-					Name:      okta.PtrString("lastName"),
-					Namespace: okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:basic"),
-					Values: []string{
-						"user.lastName",
-					},
+	samlApp.SignOnMode = okta.PtrString("SAML_2_0")
+	samlApp.Visibility = okta.NewApplicationVisibility()
+	samlApp.Settings = okta.NewSamlApplicationSettingsWithDefaults()
+	samlApp.Settings.SignOn = &okta.SamlApplicationSettingsSignOn{
+		DefaultRelayState:     okta.PtrString(""),
+		SsoAcsUrl:             &conf.SsoAcsUrl,
+		IdpIssuer:             okta.PtrString("http://www.okta.com/${org.externalKey}"),
+		Audience:              &conf.SsoAudience,
+		Recipient:             &conf.SsoAcsUrl,
+		Destination:           &conf.SsoAcsUrl,
+		SubjectNameIdTemplate: okta.PtrString("${user.userName}"),
+		SubjectNameIdFormat:   okta.PtrString("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"),
+		ResponseSigned:        okta.PtrBool(true),
+		AssertionSigned:       okta.PtrBool(true),
+		SignatureAlgorithm:    okta.PtrString("RSA_SHA256"),
+		DigestAlgorithm:       okta.PtrString("SHA256"),
+		HonorForceAuthn:       okta.PtrBool(true),
+		AuthnContextClassRef:  okta.PtrString("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"),
+		SpIssuer:              nil,
+		AttributeStatements: []okta.SamlAttributeStatement{
+			{
+				Type:      okta.PtrString("EXPRESSION"),
+				Name:      okta.PtrString("firstName"),
+				Namespace: okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:basic"),
+				Values: []string{
+					"user.firstName",
+				},
+			}, {
+				Type:      okta.PtrString("EXPRESSION"),
+				Name:      okta.PtrString("lastName"),
+				Namespace: okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:basic"),
+				Values: []string{
+					"user.lastName",
 				},
 			},
 		},
 	}
 
-	_, _, err := samlApp.Execute()
+	_, _, err := s.OktaClient.ApplicationAPI.CreateApplication(ctx).Application(
+		okta.ListApplications200ResponseInner{
+			SamlApplication: samlApp,
+		},
+	).Execute()
 
 	if err != nil {
 		return nil, err
