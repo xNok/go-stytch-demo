@@ -2,21 +2,25 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
 	cook "github.com/gorilla/sessions"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
-	"github.com/stytchauth/stytch-go/v12/stytch/b2b/magiclinks"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/magiclinks/email"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sessions"
+	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sso"
 )
 
 var store = cook.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 type StytchServerConfig struct {
 	OrganizationID string
+	ConnectionID   string
+	PublicToken    string
+	HostName       string
 }
 
 func Serve(stytchClient *b2bstytchapi.API, conf *StytchServerConfig) {
@@ -96,7 +100,9 @@ func (h *StytchHandler) LoginOrSignUp(w http.ResponseWriter, r *http.Request) {
 
 // Complete the authentication flow which mints the session
 func (h *StytchHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.StytchClient.MagicLinks.Authenticate(r.Context(), &magiclinks.AuthenticateParams{})
+	resp, err := h.StytchClient.SSO.Authenticate(r.Context(), &sso.AuthenticateParams{
+		SSOToken: r.URL.Query().Get("token"),
+	})
 
 	if err != nil {
 		AuthenticationFailed(w, r)
@@ -135,4 +141,12 @@ func AuthenticationFailed(w http.ResponseWriter, r *http.Request) {
 func AuthenticationUnauthorized(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 	w.Write([]byte("401 Autentication failed"))
+}
+
+func (h *StytchHandler) RedirectToSSO(w http.ResponseWriter, r *http.Request) {
+	url := fmt.Sprintf("htts://%s/v1/public/sso/start?connection_id=%s&public_token=%s",
+		h.Configs.HostName, h.Configs.ConnectionID, h.Configs.PublicToken,
+	)
+
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
