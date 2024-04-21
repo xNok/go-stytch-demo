@@ -1,8 +1,7 @@
-package serve
+package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/magiclinks"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/magiclinks/email"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sessions"
-	"github.com/xNok/go-stytch-demo/pkg/setup"
 )
 
 var store = cook.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
@@ -21,19 +19,9 @@ type StytchServerConfig struct {
 	OrganizationID string
 }
 
-func server(c setup.Conf, conf *StytchServerConfig) {
+func Serve(stytchClient *b2bstytchapi.API, conf *StytchServerConfig) {
 	// create the router
 	router := mux.NewRouter()
-
-	// Step 1: Instanciate stytch client
-	stytchClient, err := b2bstytchapi.NewClient(
-		c.StytchConf.ProjectID,
-		c.StytchConf.Secret,
-	)
-
-	if err != nil {
-		log.Fatalf("error instantiating API client %s", err)
-	}
 
 	// Register the route
 	stytch := NewStytchHandler(stytchClient, conf)
