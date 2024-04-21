@@ -70,9 +70,9 @@ type SetupConfig interface {
 // Setup will Perform the bootstraping oprations between Stych and Okta
 // To ensure idempotency of this function, after each step is performed the resulting configuration is persisted
 // This means that if run a second time only the steps not yet completed will be played again
-func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (conf *SetupResult) {
+func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (conf *SetupResult, err error) {
 	// Load our configuration file, this file is empty if we start from scrath
-	conf, err := s.ConfProvider.Load()
+	conf, err = s.ConfProvider.Load()
 	if err != nil {
 		log.Fatalf("error loading Configuration %s", err)
 		return
