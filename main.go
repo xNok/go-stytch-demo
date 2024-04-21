@@ -7,6 +7,7 @@ import (
 	"github.com/okta/okta-sdk-golang/v4/okta"
 	"github.com/sethvargo/go-envconfig"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
+	"github.com/xNok/go-stytch-demo/pkg/setup"
 )
 
 type Conf struct {
@@ -54,5 +55,6 @@ func main() {
 
 	oktaClient := okta.NewAPIClient(oktaConfig)
 
-	setup(ctx, stytchClient, oktaClient)
+	bootstraper := setup.NewOktaSAMLConnectionBootstraper(stytchClient, oktaClient)
+	bootstraper.Setup(ctx)
 }
