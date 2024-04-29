@@ -1,28 +1,96 @@
 /*
 Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
-	"fmt"
+	"context"
+	"log"
 
+	"github.com/sethvargo/go-envconfig"
 	"github.com/spf13/cobra"
+	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
+	"github.com/xNok/go-stytch-demo/pkg/rbac"
+	"github.com/xNok/go-stytch-demo/pkg/setup"
+)
+
+const (
+	flagOrgImpAss     = "organisation-implicit-assignment"
+	flagConImpAss     = "connection-implicit-assignment"
+	flagConSAMLImpAss = "connection-saml-implicit-assignment"
 )
 
 // configCmd represents the config command
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Config applies new configuration to a Stytch connection",
+	Long: `This command provide variaous flags that lets you test various scenarios.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("config called")
-	},
+Including:
+* Automatic role assignment based on metadata
+* Set up Stytch default resources and custom roles
+* Set up authorization checks for custom resources
+`,
+	RunE: RunConfig,
+}
+
+func RunConfig(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+
+	var c setup.Conf
+	if err := envconfig.Process(ctx, &c); err != nil {
+		panic(err)
+	}
+
+	// Step 1: Instanciate stytch client
+	stytchClient, err := b2bstytchapi.NewClient(
+		c.StytchConf.ProjectID,
+		c.StytchConf.Secret,
+	)
+
+	if err != nil {
+		log.Fatalf("error instantiating API client %s", err)
+	}
+
+	// will be replace by viper soon
+	confProvider := &setup.YAMLEntry{
+		Path: "./setup.yaml",
+	}
+
+	// Load our configuration file, this file is empty if we start from scrath
+	conf, err := confProvider.Load()
+	if err != nil {
+		return err
+	}
+
+	stytchRBACConfig := &rbac.StytchRBACConfig{
+		OrganizationID: conf.OrganizationID,
+		ConnectionID:   conf.ConnectionID,
+		Domain:         "devops-family.com",
+	}
+
+	if flag, _ := cmd.Flags().GetBool(flagOrgImpAss); flag {
+		cmd.Println("ApplyOrganizationImplictAssignement")
+		if err = rbac.ApplyOrganizationImplictAssignement(ctx, stytchClient, stytchRBACConfig); err != nil {
+			return err
+		}
+	}
+
+	if flag, _ := cmd.Flags().GetBool(flagConImpAss); flag {
+		cmd.Println("ApplyOrganizationImplictAssignement")
+		if err = rbac.ApplyConnectionImplictAssignement(ctx, stytchClient, stytchRBACConfig); err != nil {
+			return err
+		}
+	}
+
+	if flag, _ := cmd.Flags().GetBool(flagConSAMLImpAss); flag {
+		cmd.Println("ApplyOrganizationImplictAssignement")
+		if err = rbac.ApplyConnectionSAMLGroupImplictAssignement(ctx, stytchClient, stytchRBACConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func init() {
@@ -37,4 +105,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// configCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	configCmd.Flags().BoolP(flagOrgImpAss, "o", false, "Setup Stytch Organisation implicit role assignement")
+	configCmd.Flags().BoolP(flagConImpAss, "p", false, "Setup Stytch Connection implicit role assignement")
+	configCmd.Flags().BoolP(flagConSAMLImpAss, "q", false, "Setup Stytch Connection SAML Group implicit role assignement")
+
 }

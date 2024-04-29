@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -44,26 +45,40 @@ func NewStytchHandler(s *b2bstytchapi.API, conf *StytchServerConfig) *StytchHand
 	}
 }
 
+// home is our root page, we used it to test the authentication flow
+// if stytch_session is not set we redirect to SSO login
+// else use stytch_session JWT to authenticate
+// if the auth succeed we desplay user's metadata
 func (h *StytchHandler) home(w http.ResponseWriter, r *http.Request) {
+	// fetch stytch_session or redirect to SSO login
 	session, err := r.Cookie("stytch_session")
-
 	if err != nil {
 		h.RedirectToSSO(w, r)
 		return
 	}
 
-	_, err = h.StytchClient.Sessions.AuthenticateJWT(r.Context(), &sessions.AuthenticateJWTParams{
+	// validate stytch_session or return failed authentication
+	// There are three variante of this validation (authenticateSession, authenticateJWT, authenticateJWTLocal)
+	// ref: https://stytch.com/docs/b2b/api/authenticate-session
+	metdata, err := h.StytchClient.Sessions.AuthenticateJWT(r.Context(), &sessions.AuthenticateJWTParams{
 		Body: &sessions.AuthenticateParams{
 			SessionJWT: session.Value,
 		},
 	})
-
 	if err != nil {
 		AuthenticationFailed(w, r)
 		return
 	}
 
-	w.Write([]byte("This is my home page"))
+	// Json serialization of member metadata
+	member, err := json.Marshal(metdata.Member)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(member)
 }
 
 // Authenticate handles Stytch callback after Login or Signup

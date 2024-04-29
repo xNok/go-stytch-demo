@@ -174,6 +174,9 @@ func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Conte
 				"email":      "NameID",
 				"first_name": "firstName",
 				"last_name":  "lastName",
+				// This allows us to use implicit group assignements
+				// ref: https://stytch.com/docs/b2b/guides/rbac/role-assignment
+				"groups": "groups",
 			},
 		})
 
