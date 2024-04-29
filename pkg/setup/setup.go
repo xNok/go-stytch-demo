@@ -224,6 +224,12 @@ func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Con
 				Values: []string{
 					"user.lastName",
 				},
+			}, {
+				FilterType:  okta.PtrString("REFEX"),
+				FilterValue: okta.PtrString(".*billing.*"),
+				Name:        okta.PtrString("groups"),
+				Namespace:   okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"),
+				Type:        okta.PtrString("GROUP"),
 			},
 		},
 	}
