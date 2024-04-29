@@ -21,21 +21,37 @@ This demo project can be used a CLI to quicly experiment Stytch. Simply `install
 go install github.com/xNok/go-stytch-demo@main
 ```
 
-
 ## Set up Stych B2B SaaS Authentication with Okta as IDP
 
+First setup you environment by exporting defining your `STYTCH` and `OKTA` credential as follow:
+
+```bash
+STYTCH_PROJECT_ID="project-test-xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+STYTCH_SECRET="secret-test-xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-xxx="
+STYTCH_PROJECT_PUBLIC_ID="public-token-test-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+OKTA_API_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+OKTA_ORG_URL=https://trial-xxxxxxx-admin.okta.com/"
 ```
+
+Next call the setup command to bootstrap the SSO SAML configuration between Stytch and Okta
+
+```bash
 go-stytch-demo setup
 ```
 
 ## Run local server
 
+Now you can test that everything is working by running the local server. Make sure you redurect url is properly setup (http://localhost:8010/authenticate). Then run the following command:
 
 ```
 go-stytch-demo serve
 ```
 
+Go to http://localhost:8010 to start the authentication workflow, you should be redirected to Okta for login then back to you application.
+
 ## Configure RBAC
+
+Now lets play with a few different features. Keep the server running and open a new terminal.
 
 ```
 go-stytch-demo config [args]
