@@ -1,26 +1,19 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/mux"
-	cook "github.com/gorilla/sessions"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
-	"github.com/stytchauth/stytch-go/v12/stytch/b2b/magiclinks/email"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sessions"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sso"
 )
-
-var store = cook.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 type StytchServerConfig struct {
 	OrganizationID string
 	ConnectionID   string
 	PublicToken    string
-	HostName       string
 }
 
 func Serve(stytchClient *b2bstytchapi.API, conf *StytchServerConfig) {
@@ -31,13 +24,14 @@ func Serve(stytchClient *b2bstytchapi.API, conf *StytchServerConfig) {
 	stytch := NewStytchHandler(stytchClient, conf)
 
 	router.HandleFunc("/", stytch.home)
-	router.HandleFunc("/login-or-signup", stytch.LoginOrSignUp).Methods("POST")
 	router.HandleFunc("/authenticate", stytch.Authenticate).Methods("GET")
 
 	// Start the server
 	http.ListenAndServe(":8010", router)
 }
 
+// StytchHandler implement the Backend Integration of SSO
+// see https://stytch.com/docs/b2b/guides/sso/backend
 type StytchHandler struct {
 	StytchClient *b2bstytchapi.API
 	Configs      *StytchServerConfig
@@ -51,17 +45,16 @@ func NewStytchHandler(s *b2bstytchapi.API, conf *StytchServerConfig) *StytchHand
 }
 
 func (h *StytchHandler) home(w http.ResponseWriter, r *http.Request) {
-	session, err := store.Get(r, "stytch_session")
+	session, err := r.Cookie("stytch_session")
+
 	if err != nil {
-		AuthenticationFailed(w, r)
+		h.RedirectToSSO(w, r)
 		return
 	}
 
-	JWT := session.Values["jwt"].(string)
-
 	_, err = h.StytchClient.Sessions.AuthenticateJWT(r.Context(), &sessions.AuthenticateJWTParams{
 		Body: &sessions.AuthenticateParams{
-			SessionJWT: JWT,
+			SessionJWT: session.Value,
 		},
 	})
 
@@ -73,32 +66,8 @@ func (h *StytchHandler) home(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("This is my home page"))
 }
 
-type LoginOrSignUpRequestParams struct {
-	Email string
-}
-
-func (h *StytchHandler) LoginOrSignUp(w http.ResponseWriter, r *http.Request) {
-	var params LoginOrSignUpRequestParams
-
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
-
-	_, err := h.StytchClient.MagicLinks.Email.LoginOrSignup(r.Context(), &email.LoginOrSignupParams{
-		OrganizationID: h.Configs.OrganizationID,
-		EmailAddress:   params.Email,
-	})
-
-	if err != nil {
-		AuthenticationFailed(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// Complete the authentication flow which mints the session
+// Authenticate handles Stytch callback after Login or Signup
+// The route to this handler must match the configured RedirectURL
 func (h *StytchHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.StytchClient.SSO.Authenticate(r.Context(), &sso.AuthenticateParams{
 		SSOToken: r.URL.Query().Get("token"),
@@ -109,18 +78,20 @@ func (h *StytchHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get a session. We're ignoring the error resulted from decoding an
-	// existing session: Get() always returns a session, even if empty.
-	session, _ := store.Get(r, "stytch_session")
-	session.Values["jwt"] = resp.SessionJWT
-
-	err = session.Save(r, w)
-	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
+	http.SetCookie(w, &http.Cookie{
+		Name:  "stytch_session",
+		Value: resp.SessionJWT,
+	})
 
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (h *StytchHandler) RedirectToSSO(w http.ResponseWriter, r *http.Request) {
+	url := fmt.Sprintf("%s/v1/public/sso/start?connection_id=%s&public_token=%s",
+		h.StytchClient.SSO.C.GetConfig().BaseURI, h.Configs.ConnectionID, h.Configs.PublicToken,
+	)
+
+	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 func InternalServerErrorHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,12 +112,4 @@ func AuthenticationFailed(w http.ResponseWriter, r *http.Request) {
 func AuthenticationUnauthorized(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 	w.Write([]byte("401 Autentication failed"))
-}
-
-func (h *StytchHandler) RedirectToSSO(w http.ResponseWriter, r *http.Request) {
-	url := fmt.Sprintf("htts://%s/v1/public/sso/start?connection_id=%s&public_token=%s",
-		h.Configs.HostName, h.Configs.ConnectionID, h.Configs.PublicToken,
-	)
-
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }

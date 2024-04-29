@@ -15,8 +15,9 @@ type Conf struct {
 }
 
 type StytchConf struct {
-	ProjectID string `env:"STYTCH_PROJECT_ID"`
-	Secret    string `env:"STYTCH_SECRET"`
+	ProjectID   string `env:"STYTCH_PROJECT_ID"`
+	Secret      string `env:"STYTCH_SECRET"`
+	PublicToken string `env:"STYTCH_PROJECT_PUBLIC_ID"`
 }
 
 type OktaConf struct {

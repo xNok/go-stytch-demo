@@ -17,13 +17,9 @@ import (
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Serve start a HTTP server for this application",
+	Long: `This server implement the Stytch Backend Integration of SSO
+see https://stytch.com/docs/b2b/guides/sso/backend`,
 	Run: RunServe,
 }
 
@@ -59,9 +55,9 @@ func RunServe(cmd *cobra.Command, args []string) {
 
 	server.Serve(stytchClient, &server.StytchServerConfig{
 		OrganizationID: conf.OrganizationID,
+		ConnectionID:   conf.ConnectionID,
+		PublicToken:    c.StytchConf.PublicToken,
 	})
-
-	return nil
 }
 
 func init() {
