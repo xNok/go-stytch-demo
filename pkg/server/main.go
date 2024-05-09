@@ -25,7 +25,8 @@ func Serve(stytchClient *b2bstytchapi.API, conf *StytchServerConfig) {
 	stytch := NewStytchHandler(stytchClient, conf)
 
 	router.HandleFunc("/", stytch.home)
-	router.HandleFunc("/authenticate", stytch.Authenticate).Methods("GET")
+	router.HandleFunc("/authenticate", stytch.authenticate).Methods("GET")
+	router.HandleFunc("/can-i", stytch.canI).Methods("GET")
 
 	// Start the server
 	http.ListenAndServe(":8010", router)
@@ -83,7 +84,7 @@ func (h *StytchHandler) home(w http.ResponseWriter, r *http.Request) {
 
 // Authenticate handles Stytch callback after Login or Signup
 // The route to this handler must match the configured RedirectURL
-func (h *StytchHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
+func (h *StytchHandler) authenticate(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.StytchClient.SSO.Authenticate(r.Context(), &sso.AuthenticateParams{
 		SSOToken: r.URL.Query().Get("token"),
 	})
@@ -99,6 +100,58 @@ func (h *StytchHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
 	})
 
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (h *StytchHandler) canI(w http.ResponseWriter, r *http.Request) {
+	// fetch stytch_session or redirect to SSO login
+	session, err := r.Cookie("stytch_session")
+	if err != nil {
+		h.RedirectToSSO(w, r)
+		return
+	}
+
+	// Read Query Parameters
+	resource, ok := mux.Vars(r)["resource_id"]
+	if !ok {
+		return
+	}
+	action, ok := mux.Vars(r)["action_id"]
+	if !ok {
+		return
+	}
+
+	metadata, err := h.StytchClient.Sessions.AuthenticateJWT(r.Context(), &sessions.AuthenticateJWTParams{
+		Body: &sessions.AuthenticateParams{
+			SessionToken: session.Value,
+
+			AuthorizationCheck: &sessions.AuthorizationCheck{
+				OrganizationID: h.Configs.OrganizationID,
+				ResourceID:     resource,
+				Action:         action,
+			},
+		},
+	})
+
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+
+	// If the Verdict is not set them the AuthorizationCheck failed
+	if metadata.Verdict == nil {
+		AuthorisationFailed(w, r)
+		return
+	}
+
+	// Json serialization of verdict metadata
+	verdict, err := json.Marshal(metadata.Verdict)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(verdict)
 }
 
 func (h *StytchHandler) RedirectToSSO(w http.ResponseWriter, r *http.Request) {
@@ -119,12 +172,12 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("404 Not Found"))
 }
 
-func AuthenticationFailed(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("400 Autentication failed"))
+func AuthorisationFailed(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusForbidden)
+	w.Write([]byte("403 "))
 }
 
-func AuthenticationUnauthorized(w http.ResponseWriter, r *http.Request) {
+func AuthenticationFailed(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
-	w.Write([]byte("401 Autentication failed"))
+	w.Write([]byte("401 invalid authentication credentials"))
 }
