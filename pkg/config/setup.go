@@ -1,5 +1,25 @@
 package config
 
+type SetupConfig struct {
+	*SetupInput
+	*SetupResult
+}
+
+type SetupInput struct {
+	StytchSetupInput `mapstructure:"stytch"`
+	OktaSetupInput   `mapstructure:"okta"`
+}
+
+type OktaSetupInput struct {
+	SAMLAppLabel string
+}
+
+type StytchSetupInput struct {
+	OrganizationName      string
+	OrganizationSlug      string
+	ConnectionDisplayName string
+}
+
 // SetupResult collection UUID of all created resources in the setup proces
 type SetupResult struct {
 	StytchResult `mapstructure:"stytch"`
