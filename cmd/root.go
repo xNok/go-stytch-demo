@@ -53,19 +53,14 @@ func init() {
 func initConfig() {
 	viper.SetDefault("ContentDir", "content")
 
-
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
 		// Search config in home directory with name ".go-stytch-demo" (without extension).
-		viper.AddConfigPath(home)
+		viper.AddConfigPath(".")
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".go-stytch-demo")
+		viper.SetConfigName("setup")
 	}
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

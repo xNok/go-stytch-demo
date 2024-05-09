@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/okta/okta-sdk-golang/v4/okta"
 	"github.com/spf13/cobra"
@@ -30,7 +30,7 @@ func RunSetup(cmd *cobra.Command, args []string) error {
 
 	clientConf, err := config.NewClientConfig(v)
 	if err != nil {
-		log.Fatalf("error loading client configs, did you forget to set environement varaibles? %s", err)
+		return fmt.Errorf("error loading client configs, did you forget to set environement varaibles? %s", err)
 	}
 
 	// Step 1: Instanciate stytch client
@@ -39,7 +39,7 @@ func RunSetup(cmd *cobra.Command, args []string) error {
 		clientConf.StytchConf.Secret,
 	)
 	if err != nil {
-		log.Fatalf("error instantiating API client %s", err)
+		return fmt.Errorf("error instantiating API client %s", err)
 	}
 
 	// Step 2: Instanciate Okta client
@@ -48,13 +48,12 @@ func RunSetup(cmd *cobra.Command, args []string) error {
 		okta.WithToken(clientConf.OktaConf.APIToken),
 	)
 	if err != nil {
-		log.Fatalf("error instantiating Okta API client %s", err)
+		return fmt.Errorf("error instantiating Okta API client %s", err)
 	}
 	oktaClient := okta.NewAPIClient(oktaConfig)
 
 	bootstraper := setup.NewOktaSAMLConnectionBootstraper(stytchClient, oktaClient)
 	return bootstraper.Setup(ctx)
-
 }
 
 func init() {

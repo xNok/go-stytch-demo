@@ -6,11 +6,11 @@
 * [x] SSO Authentication Workflow with Styth and Go   
     * [Official Documentation](https://stytch.com/docs/b2b/guides/sso/backend)
     * [Automated With Go](./pkg/server/main.go)
-* [~] Set up RBAC with Stytch
+* [X] Set up RBAC with Stytch
     * [Official Documentation](https://stytch.com/docs/b2b/guides/rbac/role-assignment)
     * [X] Automatic role assignment based on metadata
     * [X] Set up Stytch default resources and custom roles
-    * [] Set up authorization checks for custom resources
+    * [X] Set up authorization checks for custom resources
 
 
 ## Using the Demo CLI
@@ -23,7 +23,16 @@ go install github.com/xNok/go-stytch-demo@main
 
 ## Set up Stych B2B SaaS Authentication with Okta as IDP
 
-First setup you environment by exporting defining your `STYTCH` and `OKTA` credential as follow:
+To complete this tutorial, you will need the following
+
+- A Stytch Account: [Sign Up to Stytch](https://stytch.com/dashboard/start-now)
+    - Take note of your Project ID and create a new Secret [here (dashboard/api-keys?env=test)](https://stytch.com/dashboard/api-keys?env=test)
+- An Okta Account: [Okta free trial](https://www.okta.com/free-trial)
+    - Take note of your Organisation's URL (It's the URL you are redirected to once you log in your Okta trial Okta) and [Create an API token](https://developer.okta.com/docs/guides/create-an-api-token/main/).
+- A working Go environment: [Get Started with Golang](https://go.dev/).
+    - You can use [GitPod](gitpod.io), I have added a `.gitpod.yml` to make things easier.
+
+First setup you environment by exporting and defining your `STYTCH` and `OKTA` credential as follow:
 
 ```bash
 STYTCH_PROJECT_ID="project-test-xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

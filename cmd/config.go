@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -40,7 +41,7 @@ func RunConfig(cmd *cobra.Command, args []string) error {
 
 	clientConf, err := config.NewClientConfig(v)
 	if err != nil {
-		log.Fatalf("error loading client configs, did you forget to set environement varaibles? %s", err)
+		return fmt.Errorf("error loading client configs, did you forget to set environement varaibles? %s", err)
 	}
 
 	// Step 1: Instanciate stytch client
@@ -49,7 +50,7 @@ func RunConfig(cmd *cobra.Command, args []string) error {
 		clientConf.StytchConf.Secret,
 	)
 	if err != nil {
-		log.Fatalf("error instantiating API client %s", err)
+		return fmt.Errorf("error instantiating API client %s", err)
 	}
 
 	conf, err := config.NewSetupResult(v)

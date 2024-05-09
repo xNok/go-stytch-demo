@@ -4,7 +4,7 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,15 +19,15 @@ var serveCmd = &cobra.Command{
 	Short: "Serve start a HTTP server for this application",
 	Long: `This server implement the Stytch Backend Integration of SSO
 see https://stytch.com/docs/b2b/guides/sso/backend`,
-	Run: RunServe,
+	RunE: RunServe,
 }
 
-func RunServe(cmd *cobra.Command, args []string) {
+func RunServe(cmd *cobra.Command, args []string) error {
 	v := viper.GetViper()
 
 	clientConf, err := config.NewClientConfig(v)
 	if err != nil {
-		log.Fatalf("error loading client configs, did you forget to set environement varaibles? %s", err)
+		return fmt.Errorf("error loading client configs, did you forget to set environement varaibles? %s", err)
 	}
 
 	// Step 1: Instanciate stytch client
@@ -36,12 +36,12 @@ func RunServe(cmd *cobra.Command, args []string) {
 		clientConf.StytchConf.Secret,
 	)
 	if err != nil {
-		log.Fatalf("error instantiating API client %s", err)
+		return fmt.Errorf("error instantiating API client %s", err)
 	}
 
 	conf, err := config.NewSetupResult(v)
 	if err != nil {
-		log.Fatalf("error reading config. Did you complete the setup? %s", err)
+		return fmt.Errorf("error reading config. Did you complete the setup? %s", err)
 	}
 
 	server.Serve(stytchClient, &server.StytchServerConfig{
@@ -49,6 +49,8 @@ func RunServe(cmd *cobra.Command, args []string) {
 		ConnectionID:   conf.ConnectionID,
 		PublicToken:    clientConf.StytchConf.PublicToken,
 	})
+
+	return nil
 }
 
 func init() {
