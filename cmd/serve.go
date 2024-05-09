@@ -4,14 +4,13 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"context"
 	"log"
 
-	"github.com/sethvargo/go-envconfig"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
+	"github.com/xNok/go-stytch-demo/pkg/config"
 	"github.com/xNok/go-stytch-demo/pkg/server"
-	"github.com/xNok/go-stytch-demo/pkg/setup"
 )
 
 // serveCmd represents the serve command
@@ -24,39 +23,31 @@ see https://stytch.com/docs/b2b/guides/sso/backend`,
 }
 
 func RunServe(cmd *cobra.Command, args []string) {
-	ctx := context.Background()
+	v := viper.GetViper()
 
-	var c setup.Conf
-	if err := envconfig.Process(ctx, &c); err != nil {
-		panic(err)
+	clientConf, err := config.NewClientConfig(v)
+	if err != nil {
+		log.Fatalf("error loading client configs, did you forget to set environement varaibles? %s", err)
 	}
 
 	// Step 1: Instanciate stytch client
 	stytchClient, err := b2bstytchapi.NewClient(
-		c.StytchConf.ProjectID,
-		c.StytchConf.Secret,
+		clientConf.StytchConf.ProjectID,
+		clientConf.StytchConf.Secret,
 	)
-
 	if err != nil {
 		log.Fatalf("error instantiating API client %s", err)
 	}
 
-	// will be replace by viper soon
-	confProvider := &setup.YAMLEntry{
-		Path: "./setup.yaml",
-	}
-
-	// Load our configuration file, this file is empty if we start from scrath
-	conf, err := confProvider.Load()
+	conf, err := config.NewSetupResult(v)
 	if err != nil {
-		log.Fatalf("error loading Configuration %s", err)
-		return
+		log.Fatalf("error reading config. Did you complete the setup? %s", err)
 	}
 
 	server.Serve(stytchClient, &server.StytchServerConfig{
 		OrganizationID: conf.OrganizationID,
 		ConnectionID:   conf.ConnectionID,
-		PublicToken:    c.StytchConf.PublicToken,
+		PublicToken:    clientConf.StytchConf.PublicToken,
 	})
 }
 
