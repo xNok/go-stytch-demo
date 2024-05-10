@@ -9,6 +9,7 @@ import (
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/b2bstytchapi"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sessions"
 	"github.com/stytchauth/stytch-go/v12/stytch/b2b/sso"
+	"github.com/stytchauth/stytch-go/v12/stytch/stytcherror"
 )
 
 type StytchServerConfig struct {
@@ -102,6 +103,8 @@ func (h *StytchHandler) authenticate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
+// canI allows us to test the AuthorizationCheck feature
+// we can ask if we can perform a given action on a resource
 func (h *StytchHandler) canI(w http.ResponseWriter, r *http.Request) {
 	// fetch stytch_session or redirect to SSO login
 	session, err := r.Cookie("stytch_session")
@@ -111,18 +114,21 @@ func (h *StytchHandler) canI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read Query Parameters
-	resource, ok := mux.Vars(r)["resource_id"]
-	if !ok {
+	resource := r.URL.Query().Get("resource")
+	if resource == "" {
+		BadRequestHandler(w, r)
 		return
 	}
-	action, ok := mux.Vars(r)["action_id"]
-	if !ok {
+	action := r.URL.Query().Get("action")
+	if action == "" {
+		BadRequestHandler(w, r)
 		return
 	}
 
+	// Perform authentication with AuthorizationCheck
 	metadata, err := h.StytchClient.Sessions.AuthenticateJWT(r.Context(), &sessions.AuthenticateJWTParams{
 		Body: &sessions.AuthenticateParams{
-			SessionToken: session.Value,
+			SessionJWT: session.Value,
 
 			AuthorizationCheck: &sessions.AuthorizationCheck{
 				OrganizationID: h.Configs.OrganizationID,
@@ -132,14 +138,11 @@ func (h *StytchHandler) canI(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
+	// handle Auntentication or Authorization errors
 	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
-
-	// If the Verdict is not set them the AuthorizationCheck failed
-	if metadata.Verdict == nil {
-		AuthorisationFailed(w, r)
+		stytchErr := err.(stytcherror.Error)
+		w.WriteHeader(stytchErr.StatusCode)
+		w.Write([]byte(stytchErr.ErrorMessage))
 		return
 	}
 
@@ -149,7 +152,6 @@ func (h *StytchHandler) canI(w http.ResponseWriter, r *http.Request) {
 		InternalServerErrorHandler(w, r)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write(verdict)
 }
@@ -172,9 +174,14 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("404 Not Found"))
 }
 
+func BadRequestHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("400 Bad Request"))
+}
+
 func AuthorisationFailed(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusForbidden)
-	w.Write([]byte("403 "))
+	w.Write([]byte("403 Forbidden: invalid role or permissions"))
 }
 
 func AuthenticationFailed(w http.ResponseWriter, r *http.Request) {
