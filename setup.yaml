@@ -1,7 +1,17 @@
-organizationid: organization-test-4f8867e0-d973-40b1-83ab-631ca1e8494d
-connectionid: saml-connection-test-b5fc0295-fdde-4452-a210-56e5ab44ed59
-applicationid: 0oada53uqsswV59o9697
-ssostychparameters:
-    ssoacsurl: https://test.stytch.com/v1/b2b/sso/callback/saml-connection-test-b5fc0295-fdde-4452-a210-56e5ab44ed59
-    ssoaudience: https://test.stytch.com/v1/b2b/sso/callback/saml-connection-test-b5fc0295-fdde-4452-a210-56e5ab44ed59
-ssooktaparameters: null
+okta:
+    api_token: <redacted>
+    application_id: 0oae3s0cezhCcd6FL697
+    org_url: <redacted>
+    samlapplabel: Example SAML App
+stytch:
+    connection_id: saml-connection-test-208ad2ca-0fef-4278-a6b2-2e7010e458ba
+    connectiondisplayname: Okta
+    organization_id: organization-test-c8df926f-1b7b-4e75-85ca-1dc2a995fade
+    organizationname: Example SAML App
+    organizationslug: example-saml-app
+    project_id: <redacted>
+    project_public_id: <redacted>
+    secret: <redacted>
+    sso_parameters:
+        acsurl: https://test.stytch.com/v1/b2b/sso/callback/saml-connection-test-208ad2ca-0fef-4278-a6b2-2e7010e458ba
+        audience: https://test.stytch.com/v1/b2b/sso/callback/saml-connection-test-208ad2ca-0fef-4278-a6b2-2e7010e458ba

@@ -21,7 +21,7 @@ func (s *OktaSAMLConnectionBootstraper) setupStytchOrganisation(ctx context.Cont
 	return org.Organization.OrganizationID, nil
 }
 
-func (s *OktaSAMLConnectionBootstraper) createStytchConnection(ctx context.Context, stytchConf *config.StytchSetupInput, organizationID string) (string, *SsoStychParameters, error) {
+func (s *OktaSAMLConnectionBootstraper) createStytchConnection(ctx context.Context, stytchConf *config.StytchSetupInput, organizationID string) (string, *config.StychSsoParameters, error) {
 	sso, err := s.StytchClient.SSO.SAML.CreateConnection(ctx,
 		&saml.CreateConnectionParams{
 			DisplayName:    stytchConf.ConnectionDisplayName,
@@ -39,7 +39,7 @@ func (s *OktaSAMLConnectionBootstraper) createStytchConnection(ctx context.Conte
 	}, nil
 }
 
-func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Context, organizationID, connectionID string, conf *SsoOktaParameters) error {
+func (s *OktaSAMLConnectionBootstraper) updateStytchConnection(ctx context.Context, organizationID, connectionID string, conf *config.OktaSsoParameters) error {
 	_, err := s.StytchClient.SSO.SAML.UpdateConnection(ctx,
 		&saml.UpdateConnectionParams{
 			ConnectionID:    connectionID,

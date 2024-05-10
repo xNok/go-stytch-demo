@@ -47,8 +47,8 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (err error) {
 	}
 
 	// Step 0. Create a New Organisation
-	if conf.OrganizationID == "" {
-		conf.OrganizationID, err = s.setupStytchOrganisation(ctx, &conf.StytchSetupInput)
+	if conf.StytchResult.OrganizationID == "" {
+		conf.StytchResult.OrganizationID, err = s.setupStytchOrganisation(ctx, &conf.StytchSetupInput)
 
 		if err != nil {
 			log.Fatalf("error creating Organizations %s", err)
@@ -59,8 +59,9 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (err error) {
 	}
 
 	// Step 1. Create a new SAML connection
-	if conf.ConnectionID == "" {
-		conf.ConnectionID, conf.StytchResult.SsoParameters, err = s.createStytchConnection(ctx, &conf.StytchSetupInput, conf.OrganizationID)
+	if conf.StytchResult.ConnectionID == "" {
+		conf.StytchResult.ConnectionID, conf.StytchResult.SsoParameters, err = s.createStytchConnection(ctx,
+			&conf.StytchSetupInput, conf.StytchResult.OrganizationID)
 
 		if err != nil {
 			log.Fatalf("error creating SSO SAML Connection %s", err)
@@ -71,8 +72,8 @@ func (s *OktaSAMLConnectionBootstraper) Setup(ctx context.Context) (err error) {
 	}
 
 	// Step 2: Create and configure a new Okta Application
-	if conf.ApplicationID == "" {
-		conf.ApplicationID, err = s.setupOktaSamlApplication(ctx, &conf.OktaSetupInput, conf.StytchResult.SsoParameters)
+	if conf.OktaResult.ApplicationID == "" {
+		conf.OktaResult.ApplicationID, err = s.setupOktaSamlApplication(ctx, &conf.OktaSetupInput, conf.StytchResult.SsoParameters)
 
 		if err != nil {
 			log.Fatalf("error creating Okta Application %s", err)

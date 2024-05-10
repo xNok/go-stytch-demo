@@ -46,16 +46,38 @@ func NewSetupInput(v *viper.Viper) (*SetupInput, error) {
 
 // ViperConfigProvider implement the setup.ConfigProvider interface
 // This allows us to use viper to lead and persiste setup data
-type ViperConfigProvider struct{}
+type ViperConfigProvider struct {
+	data *SetupConfig
+}
 
 func (c *ViperConfigProvider) Load() (*SetupConfig, error) {
 	v := viper.GetViper()
-	return NewSetupConfig(v)
+	data, err := NewSetupConfig(v)
+	c.data = data
+	return data, err
 }
 
 func (c *ViperConfigProvider) Save() error {
 	v := viper.GetViper()
-	return v.SafeWriteConfig()
+
+	// This remove secrets from the config written
+	v.Set("stytch.project_id", "<redacted>")
+	v.Set("stytch.secret", "<redacted>")
+	v.Set("stytch.project_public_id", "<redacted>")
+	v.Set("okta.org_url", "<redacted>")
+	v.Set("okta.api_token", "<redacted>")
+
+	// Update the config
+	v.Set("stytch.organization_id", c.data.StytchResult.OrganizationID)
+	v.Set("stytch.connection_id", c.data.StytchResult.ConnectionID)
+	v.Set("okta.application_id", c.data.OktaResult.ApplicationID)
+	if c.data.StytchResult.SsoParameters != nil {
+		v.Set("stytch.sso_parameters.acsurl", c.data.StytchResult.SsoParameters.AcsUrl)
+		v.Set("stytch.sso_parameters.audience", c.data.StytchResult.SsoParameters.Audience)
+	}
+
+	v.SafeWriteConfig()
+	return v.WriteConfig()
 }
 
 // NewClientConfig uses Viper to read secret from environement varaibles

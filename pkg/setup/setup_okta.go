@@ -40,7 +40,7 @@ func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Con
 					"user.lastName",
 				},
 			}, {
-				FilterType:  okta.PtrString("REFEX"),
+				FilterType:  okta.PtrString("REGEX"),
 				FilterValue: okta.PtrString(".*billing.*"),
 				Name:        okta.PtrString("groups"),
 				Namespace:   okta.PtrString("urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"),
@@ -74,7 +74,7 @@ func (s *OktaSAMLConnectionBootstraper) setupOktaSamlApplication(ctx context.Con
 	return *oktaApp.SamlApplication.Id, nil
 }
 
-func (s *OktaSAMLConnectionBootstraper) getOktaSamlApplicationMetada(ctx context.Context, oktaAppID string) (*SsoOktaParameters, error) {
+func (s *OktaSAMLConnectionBootstraper) getOktaSamlApplicationMetada(ctx context.Context, oktaAppID string) (*config.OktaSsoParameters, error) {
 	// Fetch the SAML metdata we need to configure Stych
 	// The okta SDK is broken it does set the Content-Type as application/xml
 	// metadata, _, err := s.OktaClient.ApplicationSSOAPI.PreviewSAMLmetadataForApplication(ctx, oktaAppID).Execute()
